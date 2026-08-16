@@ -7,21 +7,25 @@ import requests
 # =========================================================
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SECRET_KEY")
+
 
 if not SUPABASE_URL:
-    raise RuntimeError("SUPABASE_URL is not configured.")
+    raise RuntimeError(
+        "SUPABASE_URL is not configured."
+    )
 
 if not SUPABASE_KEY:
     raise RuntimeError(
-        "SUPABASE_SERVICE_ROLE_KEY is not configured."
+        "SUPABASE_SECRET_KEY is not configured."
     )
+
 
 TABLE_URL = f"{SUPABASE_URL}/rest/v1/alerts"
 
 
 # =========================================================
-# HEADERS
+# SUPABASE HEADERS
 # =========================================================
 
 def get_headers():
@@ -34,11 +38,13 @@ def get_headers():
 
 
 # =========================================================
-# INITIALIZATION
+# DATABASE INITIALIZATION
 # =========================================================
 
 def init_db():
-    # Supabase table is created using the SQL Editor.
+
+    # The alerts table is created in Supabase
+    # using the SQL Editor.
     pass
 
 
@@ -88,7 +94,10 @@ def add_alert(
 def get_alerts(page=1, per_page=50):
 
     page = max(1, int(page))
-    per_page = max(1, min(100, int(per_page)))
+    per_page = max(
+        1,
+        min(100, int(per_page))
+    )
 
     offset = (page - 1) * per_page
 
@@ -215,14 +224,14 @@ def clear_alerts():
 
         print(
             f"[!] Clear alerts failed: "
-            f"{response.status_code}"
+            f"HTTP {response.status_code}"
         )
 
         print(response.text)
 
     response.raise_for_status()
 
-    print("[+] All alerts cleared.")
+    print("[+] All alerts cleared successfully.")
 
 
 # =========================================================
