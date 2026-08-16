@@ -19,12 +19,6 @@ from db import (
     update_alert_status,
 )
 
-from detector import (
-    get_status,
-    start_monitoring,
-    stop_monitoring,
-)
-
 
 # =========================================================
 # FLASK APPLICATION
@@ -35,6 +29,21 @@ app = Flask(__name__)
 app.config["JSON_SORT_KEYS"] = False
 
 init_db()
+
+
+# =========================================================
+# CLOUD STATUS
+# =========================================================
+
+def get_status():
+    return {
+        "running": True,
+        "status": "Cloud API Online",
+        "packets_seen": 0,
+        "alerts_detected": get_alert_count(),
+        "uptime_seconds": 0,
+        "mode": "Cloud Dashboard"
+    }
 
 
 # =========================================================
@@ -90,7 +99,7 @@ def dashboard():
 
 
 # =========================================================
-# ALERT API - GET
+# GET ALERTS API
 # =========================================================
 
 @app.get("/alerts")
@@ -127,7 +136,6 @@ def alerts_api():
     )
 
     return jsonify({
-
         "alerts": get_alerts(
             page,
             per_page
@@ -144,7 +152,7 @@ def alerts_api():
 
 
 # =========================================================
-# RECEIVE ALERT FROM ARP DETECTOR
+# RECEIVE ALERT FROM LOCAL ARP DETECTOR
 # =========================================================
 
 @app.post("/api/alerts")
@@ -209,52 +217,57 @@ def receive_alert():
 
 
 # =========================================================
-# START MONITORING
+# START ROUTE
 # =========================================================
 
 @app.get("/start")
 def start():
 
-    success, message = start_monitoring()
-
-    print(
-        f"[*] {message}"
-    )
-
     return redirect(
         url_for(
             "dashboard",
-            started="1" if success else "0"
+            started="1"
         )
     )
 
 
 # =========================================================
-# STOP MONITORING
+# STOP ROUTE
 # =========================================================
 
 @app.get("/stop")
 def stop():
 
-    stop_monitoring()
-
     return redirect(
         url_for("dashboard")
     )
 
 
 # =========================================================
-# CLEAR ALERTS
+# CLEAR ALL ALERTS
 # =========================================================
 
 @app.get("/clear")
 def clear():
 
-    clear_alerts()
+    try:
 
-    return redirect(
-        url_for("dashboard")
-    )
+        clear_alerts()
+
+        return redirect(
+            url_for("dashboard")
+        )
+
+    except Exception as e:
+
+        print(
+            f"[!] Clear alerts failed: {e}"
+        )
+
+        return jsonify({
+            "success": False,
+            "error": "Failed to clear alerts"
+        }), 500
 
 
 # =========================================================
@@ -289,7 +302,7 @@ def set_status(alert_id):
 
 
 # =========================================================
-# NETWORK / MONITORING STATUS API
+# STATUS API
 # =========================================================
 
 @app.get("/status")
@@ -309,7 +322,8 @@ def health():
 
     return jsonify({
         "status": "ok",
-        "service": "ARP Shield"
+        "service": "ARP Shield",
+        "database": "Supabase"
     })
 
 
@@ -326,7 +340,7 @@ def not_found(_error):
 
 
 # =========================================================
-# START APPLICATION
+# LOCAL DEVELOPMENT
 # =========================================================
 
 if __name__ == "__main__":
