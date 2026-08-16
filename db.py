@@ -7,7 +7,15 @@ import requests
 # =========================================================
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+if not SUPABASE_URL:
+    raise RuntimeError("SUPABASE_URL is not configured.")
+
+if not SUPABASE_KEY:
+    raise RuntimeError(
+        "SUPABASE_SERVICE_ROLE_KEY is not configured."
+    )
 
 TABLE_URL = f"{SUPABASE_URL}/rest/v1/alerts"
 
@@ -16,7 +24,8 @@ TABLE_URL = f"{SUPABASE_URL}/rest/v1/alerts"
 # HEADERS
 # =========================================================
 
-def headers():
+def get_headers():
+
     return {
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -25,11 +34,11 @@ def headers():
 
 
 # =========================================================
-# DATABASE INITIALIZATION
+# INITIALIZATION
 # =========================================================
 
 def init_db():
-    # The alerts table is created in Supabase SQL Editor.
+    # Supabase table is created using the SQL Editor.
     pass
 
 
@@ -45,7 +54,7 @@ def add_alert(
     attack_type,
     severity,
     description,
-    status="Open"
+    status="Open",
 ):
 
     data = {
@@ -62,11 +71,11 @@ def add_alert(
     response = requests.post(
         TABLE_URL,
         headers={
-            **headers(),
-            "Prefer": "return=minimal"
+            **get_headers(),
+            "Prefer": "return=minimal",
         },
         json=data,
-        timeout=10
+        timeout=10,
     )
 
     response.raise_for_status()
@@ -79,10 +88,7 @@ def add_alert(
 def get_alerts(page=1, per_page=50):
 
     page = max(1, int(page))
-    per_page = max(
-        1,
-        min(100, int(per_page))
-    )
+    per_page = max(1, min(100, int(per_page)))
 
     offset = (page - 1) * per_page
 
@@ -95,9 +101,9 @@ def get_alerts(page=1, per_page=50):
 
     response = requests.get(
         TABLE_URL,
-        headers=headers(),
+        headers=get_headers(),
         params=params,
-        timeout=10
+        timeout=10,
     )
 
     response.raise_for_status()
@@ -114,20 +120,20 @@ def get_alert_count():
     response = requests.get(
         TABLE_URL,
         headers={
-            **headers(),
-            "Prefer": "count=exact"
+            **get_headers(),
+            "Prefer": "count=exact",
         },
         params={
-            "select": "id"
+            "select": "id",
         },
-        timeout=10
+        timeout=10,
     )
 
     response.raise_for_status()
 
     content_range = response.headers.get(
         "Content-Range",
-        ""
+        "",
     )
 
     if "/" in content_range:
@@ -148,11 +154,11 @@ def get_statistics():
 
     response = requests.get(
         TABLE_URL,
-        headers=headers(),
+        headers=get_headers(),
         params={
-            "select": "severity"
+            "select": "severity",
         },
-        timeout=10
+        timeout=10,
     )
 
     response.raise_for_status()
@@ -196,32 +202,27 @@ def clear_alerts():
     response = requests.delete(
         TABLE_URL,
         headers={
-            **headers(),
-            "Prefer": "return=minimal"
+            **get_headers(),
+            "Prefer": "return=minimal",
         },
         params={
-            "id": "gt.0"
+            "id": "gt.0",
         },
-        timeout=10
+        timeout=10,
     )
 
     if not response.ok:
 
         print(
-            "[!] Failed to clear alerts:"
+            f"[!] Clear alerts failed: "
+            f"{response.status_code}"
         )
 
-        print(
-            f"HTTP {response.status_code}"
-        )
-
-        print(
-            response.text
-        )
+        print(response.text)
 
     response.raise_for_status()
 
-    print("[+] All alerts cleared successfully.")
+    print("[+] All alerts cleared.")
 
 
 # =========================================================
@@ -230,30 +231,29 @@ def clear_alerts():
 
 def update_alert_status(
     alert_id,
-    status
+    status,
 ):
 
     if status not in {
         "Open",
         "Investigating",
-        "Resolved"
+        "Resolved",
     }:
-
         return False
 
     response = requests.patch(
         TABLE_URL,
         headers={
-            **headers(),
-            "Prefer": "return=minimal"
+            **get_headers(),
+            "Prefer": "return=minimal",
         },
         params={
-            "id": f"eq.{alert_id}"
+            "id": f"eq.{alert_id}",
         },
         json={
-            "status": status
+            "status": status,
         },
-        timeout=10
+        timeout=10,
     )
 
     response.raise_for_status()
