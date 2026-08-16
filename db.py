@@ -1,112 +1,261 @@
-import sqlite3
-from pathlib import Path
-
-BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = BASE_DIR / "arp_shield.db"
+import os
+import requests
 
 
-def get_connection():
-    conn = sqlite3.connect(DB_PATH, timeout=10)
-    conn.row_factory = sqlite3.Row
-    return conn
+# =========================================================
+# SUPABASE CONFIGURATION
+# =========================================================
 
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+TABLE_URL = f"{SUPABASE_URL}/rest/v1/alerts"
+
+
+# =========================================================
+# HEADERS
+# =========================================================
+
+def headers():
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+# =========================================================
+# DATABASE INITIALIZATION
+# =========================================================
 
 def init_db():
-    conn = get_connection()
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS alerts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL,
-            source_ip TEXT,
-            source_mac TEXT,
-            previous_mac TEXT,
-            attack_type TEXT NOT NULL,
-            severity TEXT NOT NULL,
-            description TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'Open'
-        )
-        """
+    # The alerts table is created in Supabase SQL Editor.
+    pass
+
+
+# =========================================================
+# ADD ALERT
+# =========================================================
+
+def add_alert(
+    timestamp,
+    source_ip,
+    source_mac,
+    previous_mac,
+    attack_type,
+    severity,
+    description,
+    status="Open"
+):
+
+    data = {
+        "timestamp": timestamp,
+        "source_ip": source_ip,
+        "source_mac": source_mac,
+        "previous_mac": previous_mac,
+        "attack_type": attack_type,
+        "severity": severity,
+        "description": description,
+        "status": status,
+    }
+
+    response = requests.post(
+        TABLE_URL,
+        headers={
+            **headers(),
+            "Prefer": "return=minimal"
+        },
+        json=data,
+        timeout=10
     )
-    conn.commit()
-    conn.close()
+
+    response.raise_for_status()
 
 
-def add_alert(timestamp, source_ip, source_mac, previous_mac,
-              attack_type, severity, description, status="Open"):
-    conn = get_connection()
-    conn.execute(
-        """
-        INSERT INTO alerts
-        (timestamp, source_ip, source_mac, previous_mac,
-         attack_type, severity, description, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (timestamp, source_ip, source_mac, previous_mac,
-         attack_type, severity, description, status),
-    )
-    conn.commit()
-    conn.close()
-
+# =========================================================
+# GET ALERTS
+# =========================================================
 
 def get_alerts(page=1, per_page=50):
+
     page = max(1, int(page))
-    per_page = max(1, min(100, int(per_page)))
+    per_page = max(
+        1,
+        min(100, int(per_page))
+    )
+
     offset = (page - 1) * per_page
 
-    conn = get_connection()
-    rows = conn.execute(
-        """
-        SELECT * FROM alerts
-        ORDER BY id DESC
-        LIMIT ? OFFSET ?
-        """,
-        (per_page, offset),
-    ).fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+    params = {
+        "select": "*",
+        "order": "id.desc",
+        "limit": per_page,
+        "offset": offset,
+    }
 
+    response = requests.get(
+        TABLE_URL,
+        headers=headers(),
+        params=params,
+        timeout=10
+    )
+
+    response.raise_for_status()
+
+    return response.json()
+
+
+# =========================================================
+# GET ALERT COUNT
+# =========================================================
 
 def get_alert_count():
-    conn = get_connection()
-    count = conn.execute("SELECT COUNT(*) FROM alerts").fetchone()[0]
-    conn.close()
-    return count
 
+    response = requests.get(
+        TABLE_URL,
+        headers={
+            **headers(),
+            "Prefer": "count=exact"
+        },
+        params={
+            "select": "id"
+        },
+        timeout=10
+    )
+
+    response.raise_for_status()
+
+    content_range = response.headers.get(
+        "Content-Range",
+        ""
+    )
+
+    if "/" in content_range:
+
+        total = content_range.split("/")[-1]
+
+        if total != "*":
+            return int(total)
+
+    return len(response.json())
+
+
+# =========================================================
+# GET STATISTICS
+# =========================================================
 
 def get_statistics():
-    conn = get_connection()
-    row = conn.execute(
-        """
-        SELECT
-            COUNT(*) AS total,
-            COALESCE(SUM(CASE WHEN severity = 'HIGH' THEN 1 ELSE 0 END), 0) AS high,
-            COALESCE(SUM(CASE WHEN severity = 'MEDIUM' THEN 1 ELSE 0 END), 0) AS medium,
-            COALESCE(SUM(CASE WHEN severity = 'LOW' THEN 1 ELSE 0 END), 0) AS low
-        FROM alerts
-        """
-    ).fetchone()
-    conn.close()
-    return dict(row)
 
+    response = requests.get(
+        TABLE_URL,
+        headers=headers(),
+        params={
+            "select": "severity"
+        },
+        timeout=10
+    )
+
+    response.raise_for_status()
+
+    rows = response.json()
+
+    total = len(rows)
+
+    high = sum(
+        1
+        for row in rows
+        if row.get("severity") == "HIGH"
+    )
+
+    medium = sum(
+        1
+        for row in rows
+        if row.get("severity") == "MEDIUM"
+    )
+
+    low = sum(
+        1
+        for row in rows
+        if row.get("severity") == "LOW"
+    )
+
+    return {
+        "total": total,
+        "high": high,
+        "medium": medium,
+        "low": low,
+    }
+
+
+# =========================================================
+# CLEAR ALL ALERTS
+# =========================================================
 
 def clear_alerts():
-    conn = get_connection()
-    conn.execute("DELETE FROM alerts")
-    conn.commit()
-    conn.close()
+
+    response = requests.delete(
+        TABLE_URL,
+        headers={
+            **headers(),
+            "Prefer": "return=minimal"
+        },
+        params={
+            "id": "gt.0"
+        },
+        timeout=10
+    )
+
+    if not response.ok:
+
+        print(
+            "[!] Failed to clear alerts:"
+        )
+
+        print(
+            f"HTTP {response.status_code}"
+        )
+
+        print(
+            response.text
+        )
+
+    response.raise_for_status()
+
+    print("[+] All alerts cleared successfully.")
 
 
-def update_alert_status(alert_id, status):
-    if status not in {"Open", "Investigating", "Resolved"}:
+# =========================================================
+# UPDATE ALERT STATUS
+# =========================================================
+
+def update_alert_status(
+    alert_id,
+    status
+):
+
+    if status not in {
+        "Open",
+        "Investigating",
+        "Resolved"
+    }:
+
         return False
 
-    conn = get_connection()
-    cursor = conn.execute(
-        "UPDATE alerts SET status = ? WHERE id = ?",
-        (status, alert_id),
+    response = requests.patch(
+        TABLE_URL,
+        headers={
+            **headers(),
+            "Prefer": "return=minimal"
+        },
+        params={
+            "id": f"eq.{alert_id}"
+        },
+        json={
+            "status": status
+        },
+        timeout=10
     )
-    conn.commit()
-    updated = cursor.rowcount > 0
-    conn.close()
-    return updated
+
+    response.raise_for_status()
+
+    return True
