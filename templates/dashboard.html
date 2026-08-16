@@ -1,683 +1,1624 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
-
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#eee8d8">
+    <title>ARP Spoofing</title>
 
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+    <style>
+        :root {
+            --paper: #eee8d8;
+            --paper-2: #e4dcc9;
+            --ink: #171717;
+            --soft: #44413a;
+            --muted: #777166;
+            --rule: #282722;
+            --light-rule: #aaa394;
+            --red: #a6332d;
+            --red-dark: #77251f;
+            --green: #4e7357;
+            --gold: #9b7132;
+        }
 
-    <title>
-        ARP Shield | Security Monitor
-    </title>
+        * {
+            box-sizing: border-box;
+        }
 
-    <link
-        rel="stylesheet"
-        href="{{ url_for('static', filename='style.css') }}"
-    >
+        html {
+            scroll-behavior: smooth;
+        }
 
+        body {
+            margin: 0;
+            background: #c4c0b5;
+            color: var(--ink);
+            font-family: Georgia, "Times New Roman", serif;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 30;
+            opacity: .12;
+            background:
+                repeating-linear-gradient(
+                    0deg,
+                    rgba(0, 0, 0, .08) 0,
+                    rgba(0, 0, 0, .08) 1px,
+                    transparent 1px,
+                    transparent 4px
+                );
+            mix-blend-mode: multiply;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        .paper {
+            width: min(1480px, calc(100% - 34px));
+            min-height: calc(100vh - 44px);
+            margin: 22px auto;
+            padding: 25px 32px 30px;
+            background: var(--paper);
+            box-shadow: 0 0 0 1px #9f998b;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Newspaper page-turn overlay */
+        .page-turn {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+            background: #252525;
+            perspective: 1800px;
+            animation: hideLoader .75s 2.05s forwards;
+        }
+
+        .page-sheet {
+            width: min(100%, 1050px);
+            background: var(--paper);
+            border-left: 1px solid #aaa18d;
+            border-right: 1px solid #aaa18d;
+            transform-origin: left center;
+            animation: newspaperTurn 1.65s cubic-bezier(.72, .02, .23, 1) .35s forwards;
+            box-shadow: 20px 0 45px rgba(0, 0, 0, .25);
+            overflow: hidden;
+        }
+
+        .loader-paper-top {
+            height: 100%;
+            padding: 35px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .loader-rule {
+            width: 70%;
+            border-top: 1px solid var(--rule);
+            border-bottom: 3px double var(--rule);
+            padding: 10px 0;
+            margin-bottom: 20px;
+            color: var(--red);
+            font: 800 9px Arial, sans-serif;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .loader-title {
+            margin: 0;
+            font: 900 clamp(44px, 8vw, 92px)/.8 Georgia, serif;
+            text-transform: uppercase;
+            letter-spacing: -5px;
+        }
+
+        .loader-subtitle {
+            margin-top: 14px;
+            color: var(--soft);
+            font-style: italic;
+        }
+
+        .loader-line {
+            width: 230px;
+            height: 2px;
+            background: var(--rule);
+            margin-top: 28px;
+            overflow: hidden;
+        }
+
+        .loader-line::after {
+            content: "";
+            display: block;
+            width: 55%;
+            height: 100%;
+            background: var(--red);
+            animation: loaderProgress 1.45s ease forwards;
+        }
+
+        @keyframes newspaperTurn {
+            0% {
+                transform: rotateY(0deg);
+            }
+
+            55% {
+                transform: rotateY(-68deg);
+            }
+
+            100% {
+                transform: rotateY(-90deg);
+            }
+        }
+
+        @keyframes hideLoader {
+            to {
+                visibility: hidden;
+                pointer-events: none;
+            }
+        }
+
+        @keyframes loaderProgress {
+            from { transform: translateX(-100%); }
+            to { transform: translateX(180%); }
+        }
+
+        .date-line {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            padding-bottom: 7px;
+            border-bottom: 1px solid var(--rule);
+            color: var(--muted);
+            font: 700 9px Arial, sans-serif;
+            letter-spacing: 1.4px;
+            text-transform: uppercase;
+        }
+
+        .date-line .edition {
+            color: var(--red);
+        }
+
+        .masthead {
+            padding: 17px 0 13px;
+            text-align: center;
+            border-bottom: 4px double var(--rule);
+        }
+
+        .masthead-kicker {
+            margin: 0 0 5px;
+            color: var(--red);
+            font: 800 10px Arial, sans-serif;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .masthead h1 {
+            margin: 0;
+            font: 900 clamp(42px, 7vw, 86px)/.82 Georgia, serif;
+            letter-spacing: -5px;
+            text-transform: uppercase;
+        }
+
+        .masthead-subtitle {
+            margin: 13px 0 0;
+            color: var(--soft);
+            font-size: 14px;
+            font-style: italic;
+        }
+
+        .navline {
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--rule);
+            font: 800 9px Arial, sans-serif;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+        }
+
+        .navline a:hover {
+            color: var(--red);
+        }
+
+        .breaking {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 12px;
+            margin: 14px 0;
+            padding: 8px 0;
+            border-top: 2px solid var(--red);
+            border-bottom: 1px solid var(--red);
+        }
+
+        .breaking-label {
+            padding: 5px 8px;
+            color: var(--paper);
+            background: var(--red);
+            font: 900 9px Arial, sans-serif;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .breaking-text {
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .live {
+            color: var(--green);
+            font: 900 9px Arial, sans-serif;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .headline {
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .headline-tag,
+        .story-kicker {
+            margin: 0 0 6px;
+            color: var(--red);
+            font: 900 9px Arial, sans-serif;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .headline h2 {
+            margin: 0;
+            max-width: 1120px;
+            font: 900 clamp(30px, 4.5vw, 58px)/.94 Georgia, serif;
+            letter-spacing: -2px;
+        }
+
+        .headline-deck {
+            max-width: 960px;
+            margin: 12px 0 0;
+            color: var(--soft);
+            font-size: 17px;
+            line-height: 1.35;
+        }
+
+        .headline-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 12px;
+            color: var(--muted);
+            font: 9px Arial, sans-serif;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .headline-meta .rule {
+            width: 30px;
+            height: 1px;
+            background: var(--red);
+        }
+
+        .news-grid {
+            display: grid;
+            grid-template-columns: 1.65fr .85fr .85fr;
+            gap: 18px;
+            margin-top: 18px;
+        }
+
+        .lead-story {
+            padding-right: 18px;
+            border-right: 1px solid var(--rule);
+        }
+
+        .lead-story h3,
+        .mini-story h3,
+        .briefing h3 {
+            margin: 0 0 8px;
+            font-weight: 900;
+        }
+
+        .lead-story h3 {
+            font-size: 29px;
+            line-height: 1;
+        }
+
+        .story-copy,
+        .mini-story p,
+        .briefing p {
+            color: var(--soft);
+            line-height: 1.5;
+            text-align: justify;
+        }
+
+        .story-copy {
+            margin: 0;
+            font-size: 14px;
+        }
+
+        .story-copy::first-letter {
+            float: left;
+            margin: 5px 7px 0 0;
+            color: var(--red);
+            font: 900 47px/.7 Georgia, serif;
+        }
+
+        .mini-story {
+            padding-right: 16px;
+            border-right: 1px solid var(--rule);
+        }
+
+        .mini-story:last-child {
+            border-right: 0;
+            padding-right: 0;
+        }
+
+        .mini-story h3 {
+            font-size: 20px;
+            line-height: 1.05;
+        }
+
+        .mini-story p {
+            margin: 0;
+            font-size: 12px;
+        }
+
+        .pun {
+            margin-top: 12px;
+            padding-top: 9px;
+            border-top: 1px dotted var(--light-rule);
+            color: var(--red);
+            font-size: 11px;
+            font-style: italic;
+        }
+
+        .stats-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            margin: 20px 0;
+            border-top: 3px solid var(--rule);
+            border-bottom: 3px double var(--rule);
+        }
+
+        .stat {
+            min-height: 108px;
+            padding: 13px 16px;
+            border-right: 1px solid var(--light-rule);
+        }
+
+        .stat:last-child {
+            border-right: 0;
+        }
+
+        .stat-label {
+            color: var(--muted);
+            font: 900 8px Arial, sans-serif;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            display: block;
+            margin-top: 12px;
+            font: 900 39px/.9 Georgia, serif;
+        }
+
+        .stat small {
+            display: block;
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .stat.high .stat-value { color: var(--red); }
+        .stat.medium .stat-value { color: var(--gold); }
+        .stat.low .stat-value { color: var(--green); }
+
+        .report-layout {
+            display: grid;
+            grid-template-columns: .78fr 2.22fr;
+            gap: 22px;
+        }
+
+        .sidebar-column {
+            padding-right: 20px;
+            border-right: 1px solid var(--rule);
+        }
+
+        .briefing {
+            margin-bottom: 20px;
+            padding-top: 10px;
+            border-top: 4px solid var(--rule);
+        }
+
+        .briefing h3 {
+            font-size: 21px;
+            line-height: 1.05;
+        }
+
+        .briefing p {
+            margin: 0 0 10px;
+            font-size: 12px;
+        }
+
+        .monitor-state {
+            padding: 12px 0;
+            border-top: 1px solid var(--rule);
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .monitor-state-title {
+            color: var(--muted);
+            font: 900 8px Arial, sans-serif;
+            letter-spacing: 1.4px;
+            text-transform: uppercase;
+        }
+
+        .monitor-state-value {
+            margin-top: 6px;
+            color: var(--green);
+            font: 900 15px Georgia, serif;
+        }
+
+        .mapping {
+            margin-top: 10px;
+            color: var(--soft);
+            font-size: 11px;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 8px 11px;
+            border: 1px solid var(--rule);
+            background: transparent;
+            color: var(--ink);
+            font: 900 9px Arial, sans-serif;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: .15s ease;
+        }
+
+        .button:hover {
+            color: var(--red);
+            border-color: var(--red);
+        }
+
+        .button.danger:hover {
+            color: var(--red);
+            border-color: var(--red);
+        }
+
+        .button.primary {
+            color: var(--green);
+            border-color: var(--green);
+        }
+
+        .alerts-heading {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 15px;
+            padding-bottom: 7px;
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .alerts-heading h2 {
+            margin: 0;
+            font: 900 25px Georgia, serif;
+        }
+
+        .alerts-heading span {
+            color: var(--muted);
+            font: 9px Arial, sans-serif;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .tools {
+            display: flex;
+            gap: 8px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .search {
+            flex: 1;
+            min-width: 180px;
+            padding: 9px 10px;
+            border: 1px solid var(--light-rule);
+            outline: none;
+            background: var(--paper-2);
+            color: var(--ink);
+            font-size: 10px;
+        }
+
+        .search:focus {
+            border-color: var(--red);
+        }
+
+        .filter {
+            padding: 9px 10px;
+            border: 1px solid var(--light-rule);
+            background: var(--paper-2);
+            color: var(--ink);
+            font-size: 9px;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            min-width: 950px;
+            border-collapse: collapse;
+        }
+
+        th {
+            padding: 9px 8px;
+            text-align: left;
+            border-bottom: 2px solid var(--rule);
+            color: var(--muted);
+            font: 900 8px Arial, sans-serif;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 11px 8px;
+            border-bottom: 1px solid var(--light-rule);
+            font-size: 10px;
+            vertical-align: top;
+        }
+
+        tbody tr {
+            opacity: 0;
+            animation: printIn .4s ease forwards;
+            transition: background .15s ease;
+        }
+
+        tbody tr:hover {
+            background: rgba(166, 51, 45, .06);
+        }
+
+        .time {
+            color: var(--muted);
+            white-space: nowrap;
+            font-family: "Courier New", monospace;
+        }
+
+        .mono {
+            color: var(--soft);
+            white-space: nowrap;
+            font: 9px "Courier New", monospace;
+        }
+
+        .description {
+            max-width: 290px;
+            color: var(--soft);
+            line-height: 1.4;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 5px;
+            border: 1px solid currentColor;
+            font: 900 8px Arial, sans-serif;
+            letter-spacing: .8px;
+        }
+
+        .badge.high { color: var(--red); }
+        .badge.medium { color: var(--gold); }
+        .badge.low { color: var(--green); }
+
+        .status-pill {
+            color: var(--green);
+            font: 900 8px Arial, sans-serif;
+            text-transform: uppercase;
+        }
+
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 10px;
+            border-top: 3px double var(--rule);
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .page-button {
+            padding-bottom: 3px;
+            border-bottom: 1px solid var(--rule);
+        }
+
+        .page-button:hover {
+            color: var(--red);
+            border-color: var(--red);
+        }
+
+        .disabled {
+            opacity: .4;
+            pointer-events: none;
+        }
+
+        .empty {
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .empty-icon {
+            margin-bottom: 10px;
+            color: var(--green);
+            font-size: 27px;
+        }
+
+        .empty h3 {
+            margin: 0 0 5px;
+            font-size: 24px;
+        }
+
+        .empty p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .network-success {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 13px 0;
+            padding: 10px 12px;
+            border: 1px solid var(--green);
+            background: rgba(78, 115, 87, .06);
+        }
+
+        .success-icon {
+            color: var(--green);
+            font-size: 18px;
+        }
+
+        .network-success strong {
+            font-size: 11px;
+        }
+
+        .network-success p {
+            margin: 3px 0 0;
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .notice.error {
+            margin: 13px 0;
+            padding: 10px 0;
+            border-top: 2px solid var(--red);
+            border-bottom: 1px solid var(--red);
+            color: var(--red-dark);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .notice.error span {
+            display: block;
+            margin-top: 4px;
+            color: var(--muted);
+        }
+
+        footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-top: 22px;
+            padding-top: 10px;
+            border-top: 4px double var(--rule);
+            color: var(--muted);
+            font: 8px Arial, sans-serif;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        footer strong {
+            color: var(--red);
+        }
+
+        .progress {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 0;
+            height: 3px;
+            z-index: 110;
+            background: var(--red);
+            transition: width .8s ease;
+        }
+
+        @keyframes printIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .news-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .lead-story {
+                grid-column: 1 / -1;
+                padding-right: 0;
+                padding-bottom: 15px;
+                border-right: 0;
+                border-bottom: 1px solid var(--rule);
+            }
+
+            .report-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar-column {
+                padding-right: 0;
+                padding-bottom: 18px;
+                border-right: 0;
+                border-bottom: 1px solid var(--rule);
+            }
+        }
+
+        @media (max-width: 760px) {
+            .paper {
+                width: calc(100% - 14px);
+                margin: 7px auto;
+                padding: 17px;
+            }
+
+            .date-line {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .navline {
+                justify-content: flex-start;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+
+            .breaking {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
+
+            .news-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .mini-story {
+                padding-right: 0;
+                padding-bottom: 14px;
+                border-right: 0;
+                border-bottom: 1px solid var(--rule);
+            }
+
+            .stats-strip {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .stat {
+                border-bottom: 1px solid var(--light-rule);
+            }
+
+            .stat:nth-child(even) {
+                border-right: 0;
+            }
+
+            .tools {
+                flex-direction: column;
+            }
+
+            footer {
+                flex-direction: column;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 1ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 1ms !important;
+            }
+        }
+    </style>
 </head>
-
 
 <body>
 
+    <div class="page-turn" id="pageTurn">
 
-<div class="app-shell">
+        <div class="page-sheet">
 
+            <div class="loader-paper-top">
 
-    <!-- =================================================
-         SIDEBAR
-    ================================================== -->
+                <div class="loader-rule">
+                    Extra! Security Edition
+                </div>
 
-    <aside class="sidebar">
+                <h1 class="loader-title">
+                    ARP Spoofing
+                </h1>
 
+                <div class="loader-subtitle">
+                    Your network's morning paper is being printed...
+                </div>
 
-        <div class="brand">
-
-            <div class="brand-mark">
-                AS
-            </div>
-
-            <div>
-
-                <strong>
-                    ARP Shield
-                </strong>
-
-                <span>
-                    Security Monitor
-                </span>
+                <div class="loader-line"></div>
 
             </div>
 
         </div>
 
+    </div>
 
-        <nav>
+    <div class="progress" id="progress"></div>
 
-            <a
-                class="nav-item active"
-                href="{{ url_for('dashboard') }}"
-            >
-                Dashboard
+    <main class="paper">
+
+        <div class="date-line">
+            <span>Local Network Security Division</span>
+            <span class="edition">ARP Spoofing · Security Edition</span>
+            <span id="dateLine">Today</span>
+        </div>
+
+        <header class="masthead">
+
+            <p class="masthead-kicker">
+                The Daily Network Record
+            </p>
+
+            <h1>
+                ARP Spoofing
+            </h1>
+
+            <p class="masthead-subtitle">
+                The paper that keeps an eye on who is claiming to be who
+            </p>
+
+        </header>
+
+        <nav class="navline">
+
+            <a href="{{ url_for('dashboard') }}">
+                Front Page
             </a>
 
-            <a
-                class="nav-item"
-                href="#alerts"
-            >
+            <a href="#alerts">
                 Security Alerts
+            </a>
+
+            <a href="#overview">
+                System Report
+            </a>
+
+            {% if status.running %}
+
+                <a href="{{ url_for('stop') }}">
+                    Stop Monitoring
+                </a>
+
+            {% else %}
+
+                <a href="{{ url_for('start') }}">
+                    Start Monitoring
+                </a>
+
+            {% endif %}
+
+            <a href="{{ url_for('dashboard', page=page) }}">
+                Refresh
             </a>
 
         </nav>
 
+        <div class="breaking">
 
-        <div class="sidebar-note">
-
-            <span class="dot"></span>
-
-            Passive monitoring
-
-        </div>
-
-
-    </aside>
-
-
-    <!-- =================================================
-         MAIN CONTENT
-    ================================================== -->
-
-    <main class="main">
-
-
-        <!-- =================================================
-             HEADER
-        ================================================== -->
-
-        <header class="topbar">
-
-
-            <div>
-
-                <p class="eyebrow">
-                    LOCAL NETWORK SECURITY
-                </p>
-
-                <h1>
-                    ARP Spoofing Detection
-                </h1>
-
-                <p class="muted">
-                    Monitor ARP activity and investigate
-                    suspicious IP-MAC changes.
-                </p>
-
-            </div>
-
-
-            <div class="top-actions">
-
-
-                {% if status.running %}
-
-                    <a
-                        class="button danger"
-                        href="{{ url_for('stop') }}"
-                    >
-                        Stop Monitoring
-                    </a>
-
-                {% else %}
-
-                    <a
-                        class="button primary"
-                        href="{{ url_for('start') }}"
-                    >
-                        Start Monitoring
-                    </a>
-
-                {% endif %}
-
-
-                <a
-                    class="button secondary"
-                    href="{{ url_for('dashboard', page=page) }}"
-                >
-                    Refresh
-                </a>
-
-
-            </div>
-
-
-        </header>
-
-
-        <!-- =================================================
-             STATUS BAR
-        ================================================== -->
-
-        <section class="status-bar">
-
-
-            <div class="status-left">
-
-
-                <span
-                    class="status-dot
-                    {{ 'online' if status.running else 'offline' }}"
-                ></span>
-
-
-                <strong>
-
-                    {{
-                        'Monitoring Active'
-                        if status.running
-                        else
-                        'Monitoring Stopped'
-                    }}
-
-                </strong>
-
-
-                <span class="muted">
-                    Passive packet inspection
-                </span>
-
-
-            </div>
-
-
-            <span class="mapping-count">
-
-                {{ status.learned_mappings }}
-
-                learned mappings
-
+            <span class="breaking-label">
+                Breaking
             </span>
 
+            <span class="breaking-text">
+                ARP activity is under watch. Suspicious identity changes may have made the front page.
+            </span>
 
-        </section>
+            <span class="live">
+                ● Live
+            </span>
 
-
-        <!-- =================================================
-             NETWORK DETECTED MESSAGE
-        ================================================== -->
+        </div>
 
         {% if started == "1" and status.running %}
 
         <div class="network-success">
 
-            <span class="success-icon">
-                ✓
-            </span>
+            <span class="success-icon">✓</span>
 
             <div>
-
-                <strong>
-                    Network detected
-                </strong>
+                <strong>Network detected</strong>
 
                 <p>
                     ARP monitoring started successfully.
                 </p>
-
             </div>
 
         </div>
 
         {% endif %}
-
-
-        <!-- =================================================
-             ERROR MESSAGE
-        ================================================== -->
 
         {% if status.error %}
 
         <div class="notice error">
 
-            <strong>
-                Packet capture error:
-            </strong>
+            <strong>Packet capture error:</strong>
 
             {{ status.error }}
 
             <span>
-                On Windows, run the terminal as
-                Administrator and ensure Npcap is installed.
+                On Windows, run the terminal as Administrator
+                and ensure Npcap is installed.
             </span>
 
         </div>
 
         {% endif %}
 
+        <section class="headline">
 
-        <!-- =================================================
-             STATISTICS
-        ================================================== -->
+            <p class="headline-tag">
+                Main Report
+            </p>
 
-        <section class="stats-grid">
+            <h2>
+                Local network identities under scrutiny as ARP activity makes the news
+            </h2>
 
+            <p class="headline-deck">
+                ARP Spoofing watches IP-MAC changes, records suspicious activity
+                and turns network events into a readable security report.
+            </p>
 
-            <article class="stat-card">
-
-                <span>
-                    Total Alerts
-                </span>
-
-                <strong>
-                    {{ stats.total }}
-                </strong>
-
-                <small>
-                    Detected security events
-                </small>
-
-            </article>
-
-
-            <article class="stat-card high">
-
-                <span>
-                    High Severity
-                </span>
-
-                <strong>
-                    {{ stats.high }}
-                </strong>
-
-                <small>
-                    Requires investigation
-                </small>
-
-            </article>
-
-
-            <article class="stat-card medium">
-
-                <span>
-                    Medium Severity
-                </span>
-
-                <strong>
-                    {{ stats.medium }}
-                </strong>
-
-                <small>
-                    Needs review
-                </small>
-
-            </article>
-
-
-            <article class="stat-card low">
-
-                <span>
-                    Low Severity
-                </span>
-
-                <strong>
-                    {{ stats.low }}
-                </strong>
-
-                <small>
-                    Minor anomalies
-                </small>
-
-            </article>
-
+            <div class="headline-meta">
+                <span>Network Security Desk</span>
+                <span class="rule"></span>
+                <span id="headlineTime">Updated now</span>
+            </div>
 
         </section>
 
+        <section class="news-grid">
 
-        <!-- =================================================
-             SECURITY ALERTS
-        ================================================== -->
+            <article class="lead-story">
 
-        <section
-            class="panel"
-            id="alerts"
-        >
+                <p class="story-kicker">
+                    Lead Story
+                </p>
 
+                <h3>
+                    Someone changed their network identity. Our reporters noticed.
+                </h3>
 
-            <div class="panel-head">
+                <p class="story-copy">
+                    ARP helps devices associate IP addresses with MAC addresses.
+                    ARP Spoofing watches those relationships and records unexpected
+                    changes so suspicious activity can be investigated.
+                </p>
 
+                <p class="pun">
+                    No fake news here. Just fake network identities.
+                </p>
 
-                <div>
+            </article>
+
+            <article class="mini-story">
+
+                <p class="story-kicker">
+                    Network Watch
+                </p>
+
+                <h3>
+                    The MAC is in the details
+                </h3>
+
+                <p>
+                    Learned mappings provide the baseline for spotting unusual
+                    IP-MAC changes across the local network.
+                </p>
+
+                <p class="pun">
+                    We checked the MAC. It checked out suspicious.
+                </p>
+
+            </article>
+
+            <article class="mini-story">
+
+                <p class="story-kicker">
+                    Security Desk
+                </p>
+
+                <h3>
+                    Breaking news, not breaking trust
+                </h3>
+
+                <p>
+                    Alerts are grouped by severity so important events can be
+                    reviewed without turning every packet into a headline.
+                </p>
+
+                <p class="pun">
+                    Consider this your daily dose of packet journalism.
+                </p>
+
+            </article>
+
+        </section>
+
+        <section id="overview">
+
+            <div class="stats-strip">
+
+                <article class="stat">
+
+                    <span class="stat-label">
+                        Total Alerts
+                    </span>
+
+                    <strong class="stat-value counter"
+                            data-value="{{ stats.total }}">
+                        {{ stats.total }}
+                    </strong>
+
+                    <small>
+                        Detected security events
+                    </small>
+
+                </article>
+
+                <article class="stat high">
+
+                    <span class="stat-label">
+                        High Severity
+                    </span>
+
+                    <strong class="stat-value counter"
+                            data-value="{{ stats.high }}">
+                        {{ stats.high }}
+                    </strong>
+
+                    <small>
+                        Requires investigation
+                    </small>
+
+                </article>
+
+                <article class="stat medium">
+
+                    <span class="stat-label">
+                        Medium Severity
+                    </span>
+
+                    <strong class="stat-value counter"
+                            data-value="{{ stats.medium }}">
+                        {{ stats.medium }}
+                    </strong>
+
+                    <small>
+                        Needs review
+                    </small>
+
+                </article>
+
+                <article class="stat low">
+
+                    <span class="stat-label">
+                        Low Severity
+                    </span>
+
+                    <strong class="stat-value counter"
+                            data-value="{{ stats.low }}">
+                        {{ stats.low }}
+                    </strong>
+
+                    <small>
+                        Minor anomalies
+                    </small>
+
+                </article>
+
+            </div>
+
+        </section>
+
+        <section class="report-layout">
+
+            <aside class="sidebar-column">
+
+                <article class="briefing">
+
+                    <p class="story-kicker">
+                        Editor's Briefing
+                    </p>
+
+                    <h3>
+                        What is happening on the wire?
+                    </h3>
+
+                    <p>
+                        ARP activity and IP-MAC changes are collected and
+                        presented as a running security record.
+                    </p>
+
+                    <p>
+                        Each alert includes the source details, attack type,
+                        severity, description and current status.
+                    </p>
+
+                </article>
+
+                <div class="monitor-state">
+
+                    <div class="monitor-state-title">
+                        Monitoring State
+                    </div>
+
+                    <div class="monitor-state-value">
+                        {{
+                            'ACTIVE'
+                            if status.running
+                            else
+                            'STOPPED'
+                        }}
+                    </div>
+
+                    <div class="mapping">
+                        {{ status.learned_mappings }}
+                        learned mappings
+                    </div>
+
+                </div>
+
+                <article class="briefing">
+
+                    <p class="story-kicker">
+                        Today's Pun
+                    </p>
+
+                    <h3>
+                        ARPsolutely no room for impostors.
+                    </h3>
+
+                    <p>
+                        If an IP-MAC relationship suddenly changes,
+                        this paper may have a story to tell.
+                    </p>
+
+                    <a class="button"
+                       href="{{ url_for('clear') }}"
+                       onclick="return confirm('Clear all stored alerts?');">
+                        Clear Alerts
+                    </a>
+
+                </article>
+
+            </aside>
+
+            <section id="alerts">
+
+                <div class="alerts-heading">
 
                     <h2>
                         Security Alerts
                     </h2>
 
+                    <span>
+                        {{ alerts|length }} records displayed
+                    </span>
+
+                </div>
+
+                <div class="tools">
+
+                    <input
+                        id="searchInput"
+                        class="search"
+                        type="search"
+                        placeholder="Search the security record..."
+                        autocomplete="off"
+                    >
+
+                    <select
+                        id="severityFilter"
+                        class="filter"
+                    >
+
+                        <option value="ALL">
+                            All Severity
+                        </option>
+
+                        <option value="HIGH">
+                            High
+                        </option>
+
+                        <option value="MEDIUM">
+                            Medium
+                        </option>
+
+                        <option value="LOW">
+                            Low
+                        </option>
+
+                    </select>
+
+                </div>
+
+                {% if alerts %}
+
+                <div class="table-wrap">
+
+                    <table id="alertTable">
+
+                        <thead>
+
+                        <tr>
+                            <th>Time</th>
+                            <th>Source IP</th>
+                            <th>Source MAC</th>
+                            <th>Previous MAC</th>
+                            <th>Attack Type</th>
+                            <th>Severity</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                        </tr>
+
+                        </thead>
+
+                        <tbody>
+
+                        {% for alert in alerts %}
+
+                        <tr class="alert-row"
+                            data-severity="{{ alert.severity }}">
+
+                            <td class="time">
+                                {{ alert.timestamp }}
+                            </td>
+
+                            <td class="mono">
+                                {{ alert.source_ip or 'N/A' }}
+                            </td>
+
+                            <td class="mono">
+                                {{ alert.source_mac or 'N/A' }}
+                            </td>
+
+                            <td class="mono">
+                                {{ alert.previous_mac or 'N/A' }}
+                            </td>
+
+                            <td>
+                                {{ alert.attack_type }}
+                            </td>
+
+                            <td>
+
+                                <span class="badge {{ alert.severity|lower }}">
+                                    {{ alert.severity }}
+                                </span>
+
+                            </td>
+
+                            <td class="description">
+                                {{ alert.description }}
+                            </td>
+
+                            <td>
+                                <span class="status-pill">
+                                    {{ alert.status }}
+                                </span>
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+                <div class="pagination">
+
+                    {% if page > 1 %}
+
+                        <a class="page-button"
+                           href="{{ url_for('dashboard', page=page-1) }}">
+                            Previous
+                        </a>
+
+                    {% else %}
+
+                        <span class="page-button disabled">
+                            Previous
+                        </span>
+
+                    {% endif %}
+
+                    <span>
+                        Page <strong>{{ page }}</strong>
+                        of <strong>{{ total_pages }}</strong>
+                    </span>
+
+                    {% if page < total_pages %}
+
+                        <a class="page-button"
+                           href="{{ url_for('dashboard', page=page+1) }}">
+                            Next
+                        </a>
+
+                    {% else %}
+
+                        <span class="page-button disabled">
+                            Next
+                        </span>
+
+                    {% endif %}
+
+                </div>
+
+                {% else %}
+
+                <div class="empty">
+
+                    <div class="empty-icon">✓</div>
+
+                    <h3>No security alerts</h3>
+
                     <p>
-                        Latest suspicious ARP activity
+                        Start monitoring to analyze ARP traffic
+                        on the local network.
                     </p>
 
                 </div>
 
-
-                <a
-                    class="button ghost danger-text"
-                    href="{{ url_for('clear') }}"
-                    onclick="
-                        return confirm(
-                            'Clear all stored alerts?'
-                        );
-                    "
-                >
-                    Clear Alerts
-                </a>
-
-
-            </div>
-
-
-            {% if alerts %}
-
-
-            <div class="table-wrap">
-
-
-                <table>
-
-
-                    <thead>
-
-                    <tr>
-
-                        <th>
-                            Time
-                        </th>
-
-                        <th>
-                            Source IP
-                        </th>
-
-                        <th>
-                            Source MAC
-                        </th>
-
-                        <th>
-                            Previous MAC
-                        </th>
-
-                        <th>
-                            Attack Type
-                        </th>
-
-                        <th>
-                            Severity
-                        </th>
-
-                        <th>
-                            Description
-                        </th>
-
-                        <th>
-                            Status
-                        </th>
-
-                    </tr>
-
-                    </thead>
-
-
-                    <tbody>
-
-
-                    {% for alert in alerts %}
-
-
-                    <tr>
-
-
-                        <td class="time">
-
-                            {{ alert.timestamp }}
-
-                        </td>
-
-
-                        <td class="mono">
-
-                            {{ alert.source_ip or '—' }}
-
-                        </td>
-
-
-                        <td class="mono">
-
-                            {{ alert.source_mac or '—' }}
-
-                        </td>
-
-
-                        <td class="mono">
-
-                            {{ alert.previous_mac or '—' }}
-
-                        </td>
-
-
-                        <td>
-
-                            {{ alert.attack_type }}
-
-                        </td>
-
-
-                        <td>
-
-                            <span
-                                class="badge
-                                {{ alert.severity|lower }}"
-                            >
-
-                                {{ alert.severity }}
-
-                            </span>
-
-                        </td>
-
-
-                        <td class="description">
-
-                            {{ alert.description }}
-
-                        </td>
-
-
-                        <td>
-
-                            <span class="status-pill">
-
-                                {{ alert.status }}
-
-                            </span>
-
-                        </td>
-
-
-                    </tr>
-
-
-                    {% endfor %}
-
-
-                    </tbody>
-
-
-                </table>
-
-
-            </div>
-
-
-            <!-- =================================================
-                 PAGINATION
-            ================================================== -->
-
-            <div class="pagination">
-
-
-                {% if page > 1 %}
-
-                    <a
-                        class="page-button"
-                        href="{{ url_for(
-                            'dashboard',
-                            page=page-1
-                        ) }}"
-                    >
-                        ← Previous
-                    </a>
-
-                {% else %}
-
-                    <span class="page-button disabled">
-                        ← Previous
-                    </span>
-
                 {% endif %}
 
-
-                <span>
-
-                    Page
-
-                    <strong>
-                        {{ page }}
-                    </strong>
-
-                    of
-
-                    <strong>
-                        {{ total_pages }}
-                    </strong>
-
-                </span>
-
-
-                {% if page < total_pages %}
-
-                    <a
-                        class="page-button"
-                        href="{{ url_for(
-                            'dashboard',
-                            page=page+1
-                        ) }}"
-                    >
-                        Next →
-                    </a>
-
-                {% else %}
-
-                    <span class="page-button disabled">
-                        Next →
-                    </span>
-
-                {% endif %}
-
-
-            </div>
-
-
-            {% else %}
-
-
-            <!-- =================================================
-                 EMPTY STATE
-            ================================================== -->
-
-            <div class="empty">
-
-                <div class="empty-icon">
-                    ✓
-                </div>
-
-                <h3>
-                    No security alerts
-                </h3>
-
-                <p>
-                    Start monitoring to analyze
-                    ARP traffic on the local network.
-                </p>
-
-            </div>
-
-
-            {% endif %}
-
+            </section>
 
         </section>
 
-
-        <!-- =================================================
-             FOOTER
-        ================================================== -->
-
         <footer>
 
-            ARP Shield · Passive defensive monitoring ·
-            Local environment
+            <div>
+                <strong>ARP Spoofing</strong>
+                · Local network security edition
+            </div>
+
+            <div>
+                Passive defensive monitoring · Local environment
+            </div>
 
         </footer>
 
-
     </main>
 
+    <script>
+        const dateLine =
+            document.getElementById("dateLine");
 
-</div>
+        const headlineTime =
+            document.getElementById("headlineTime");
 
+        const progress =
+            document.getElementById("progress");
 
-<script>
+        const pageTurn =
+            document.getElementById("pageTurn");
 
-    /*
-        Lightweight monitoring status refresh.
-    */
+        const searchInput =
+            document.getElementById("searchInput");
 
-    setInterval(async () => {
+        const severityFilter =
+            document.getElementById("severityFilter");
 
-        try {
+        const rows =
+            Array.from(
+                document.querySelectorAll(".alert-row")
+            );
 
-            const response =
-                await fetch(
-                    "{{ url_for('status_api') }}"
-                );
+        function updateDate() {
+            const now = new Date();
 
-            if (!response.ok) {
-                return;
+            if (dateLine) {
+                dateLine.textContent =
+                    now.toLocaleDateString([], {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric"
+                    });
             }
 
-            const data =
-                await response.json();
-
-            document.body.dataset.monitoring =
-                data.running
-                    ? "active"
-                    : "stopped";
-
+            if (headlineTime) {
+                headlineTime.textContent =
+                    "Updated " +
+                    now.toLocaleTimeString([], {
+                        hour12: false
+                    });
+            }
         }
 
-        catch (_) {
+        updateDate();
+        setInterval(updateDate, 1000);
 
-            // Ignore temporary refresh errors.
+        window.addEventListener("load", () => {
+            setTimeout(() => {
+                if (pageTurn) {
+                    pageTurn.style.pointerEvents = "none";
+                }
+            }, 2400);
+        });
 
+        document
+            .querySelectorAll(".counter")
+            .forEach((counter) => {
+
+                const target =
+                    Number(counter.dataset.value);
+
+                if (!Number.isFinite(target) || target <= 0) {
+                    return;
+                }
+
+                const start = performance.now();
+                const duration = 700;
+
+                function animate(time) {
+                    const value =
+                        Math.min(
+                            (time - start) / duration,
+                            1
+                        );
+
+                    const eased =
+                        1 - Math.pow(1 - value, 3);
+
+                    counter.textContent =
+                        Math.round(target * eased);
+
+                    if (value < 1) {
+                        requestAnimationFrame(animate);
+                    }
+                }
+
+                requestAnimationFrame(animate);
+            });
+
+        function filterAlerts() {
+            const query =
+                searchInput
+                    ? searchInput.value.toLowerCase().trim()
+                    : "";
+
+            const severity =
+                severityFilter
+                    ? severityFilter.value
+                    : "ALL";
+
+            rows.forEach((row) => {
+
+                const text =
+                    row.textContent.toLowerCase();
+
+                const matchesText =
+                    !query ||
+                    text.includes(query);
+
+                const matchesSeverity =
+                    severity === "ALL" ||
+                    row.dataset.severity === severity;
+
+                row.style.display =
+                    matchesText && matchesSeverity
+                        ? ""
+                        : "none";
+            });
         }
 
-    }, 5000);
+        if (searchInput) {
+            searchInput.addEventListener(
+                "input",
+                filterAlerts
+            );
+        }
 
-</script>
+        if (severityFilter) {
+            severityFilter.addEventListener(
+                "change",
+                filterAlerts
+            );
+        }
 
+        rows.forEach((row, index) => {
+            row.style.animationDelay =
+                `${index * 35}ms`;
+        });
+
+        document
+            .querySelectorAll("a.button")
+            .forEach((button) => {
+
+                button.addEventListener("click", () => {
+
+                    progress.style.width = "70%";
+
+                    setTimeout(() => {
+                        progress.style.width = "100%";
+                    }, 450);
+
+                    setTimeout(() => {
+                        progress.style.width = "0%";
+                    }, 950);
+                });
+            });
+
+        setInterval(async () => {
+
+            try {
+
+                const response =
+                    await fetch(
+                        "{{ url_for('status_api') }}"
+                    );
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data =
+                    await response.json();
+
+                document.body.dataset.monitoring =
+                    data.running
+                        ? "active"
+                        : "stopped";
+
+            } catch (error) {
+                // Temporary refresh errors are ignored.
+            }
+
+        }, 5000);
+    </script>
 
 </body>
-
 </html>
