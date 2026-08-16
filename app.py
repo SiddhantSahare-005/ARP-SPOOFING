@@ -10,6 +10,7 @@ from flask import (
 )
 
 from db import (
+    add_alert,
     clear_alerts,
     get_alert_count,
     get_alerts,
@@ -24,6 +25,10 @@ from detector import (
     stop_monitoring,
 )
 
+
+# =========================================================
+# FLASK APPLICATION
+# =========================================================
 
 app = Flask(__name__)
 
@@ -85,7 +90,7 @@ def dashboard():
 
 
 # =========================================================
-# ALERT API
+# ALERT API - GET
 # =========================================================
 
 @app.get("/alerts")
@@ -139,6 +144,71 @@ def alerts_api():
 
 
 # =========================================================
+# RECEIVE ALERT FROM ARP DETECTOR
+# =========================================================
+
+@app.post("/api/alerts")
+def receive_alert():
+
+    data = request.get_json(
+        silent=True
+    ) or {}
+
+    required_fields = [
+        "ip",
+        "mac",
+        "old_mac",
+        "alert_type",
+        "severity",
+        "message",
+        "timestamp",
+    ]
+
+    missing = [
+        field
+        for field in required_fields
+        if not data.get(field)
+    ]
+
+    if missing:
+
+        return jsonify({
+            "success": False,
+            "error": "Missing required fields",
+            "fields": missing
+        }), 400
+
+    try:
+
+        add_alert(
+            timestamp=data["timestamp"],
+            source_ip=data["ip"],
+            source_mac=data["mac"],
+            previous_mac=data["old_mac"],
+            attack_type=data["alert_type"],
+            severity=data["severity"],
+            description=data["message"],
+            status="Open"
+        )
+
+        return jsonify({
+            "success": True,
+            "message": "Alert stored successfully"
+        }), 201
+
+    except Exception as e:
+
+        print(
+            f"[!] Failed to store alert: {e}"
+        )
+
+        return jsonify({
+            "success": False,
+            "error": "Failed to store alert"
+        }), 500
+
+
+# =========================================================
 # START MONITORING
 # =========================================================
 
@@ -146,6 +216,10 @@ def alerts_api():
 def start():
 
     success, message = start_monitoring()
+
+    print(
+        f"[*] {message}"
+    )
 
     return redirect(
         url_for(
@@ -224,6 +298,19 @@ def status_api():
     return jsonify(
         get_status()
     )
+
+
+# =========================================================
+# HEALTH CHECK
+# =========================================================
+
+@app.get("/health")
+def health():
+
+    return jsonify({
+        "status": "ok",
+        "service": "ARP Shield"
+    })
 
 
 # =========================================================
