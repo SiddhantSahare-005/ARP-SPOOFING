@@ -12,7 +12,7 @@ from scapy.all import sniff, ARP
 
 API_URL = os.getenv(
     "ARPSHIELD_API_URL",
-    "https://YOUR-APP.vercel.app/api/alerts"
+    "https://arp-spoofing.vercel.app/"
 )
 
 CACHE_TIMEOUT = 300
