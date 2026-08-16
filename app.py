@@ -36,13 +36,15 @@ init_db()
 # =========================================================
 
 def get_status():
+    total_alerts = get_alert_count()
+
     return {
         "running": True,
         "status": "Cloud API Online",
         "packets_seen": 0,
-        "alerts_detected": get_alert_count(),
+        "alerts_detected": total_alerts,
         "uptime_seconds": 0,
-        "mode": "Cloud Dashboard"
+        "mode": "Cloud Dashboard",
     }
 
 
@@ -80,21 +82,15 @@ def dashboard():
 
     return render_template(
         "dashboard.html",
-
         alerts=get_alerts(
             page,
             per_page
         ),
-
         stats=get_statistics(),
-
         page=page,
-
         total_pages=total_pages,
-
         status=get_status(),
-
-        started=started
+        started=started,
     )
 
 
@@ -111,15 +107,14 @@ def alerts_api():
         type=int
     )
 
+    per_page = request.args.get(
+        "per_page",
+        50,
+        type=int
+    )
+
     per_page = min(
-        max(
-            request.args.get(
-                "per_page",
-                50,
-                type=int
-            ),
-            1
-        ),
+        max(per_page, 1),
         100
     )
 
@@ -140,13 +135,9 @@ def alerts_api():
             page,
             per_page
         ),
-
         "stats": get_statistics(),
-
         "page": page,
-
         "total_pages": total_pages,
-
         "status": get_status(),
     })
 
@@ -179,11 +170,10 @@ def receive_alert():
     ]
 
     if missing:
-
         return jsonify({
             "success": False,
             "error": "Missing required fields",
-            "fields": missing
+            "fields": missing,
         }), 400
 
     try:
@@ -196,12 +186,12 @@ def receive_alert():
             attack_type=data["alert_type"],
             severity=data["severity"],
             description=data["message"],
-            status="Open"
+            status="Open",
         )
 
         return jsonify({
             "success": True,
-            "message": "Alert stored successfully"
+            "message": "Alert stored successfully",
         }), 201
 
     except Exception as e:
@@ -212,12 +202,12 @@ def receive_alert():
 
         return jsonify({
             "success": False,
-            "error": "Failed to store alert"
+            "error": "Failed to store alert",
         }), 500
 
 
 # =========================================================
-# START ROUTE
+# START
 # =========================================================
 
 @app.get("/start")
@@ -232,7 +222,7 @@ def start():
 
 
 # =========================================================
-# STOP ROUTE
+# STOP
 # =========================================================
 
 @app.get("/stop")
@@ -266,7 +256,7 @@ def clear():
 
         return jsonify({
             "success": False,
-            "error": "Failed to clear alerts"
+            "error": "Failed to clear alerts",
         }), 500
 
 
@@ -292,8 +282,8 @@ def set_status(alert_id):
     ):
 
         return jsonify({
-            "error":
-            "Invalid status or alert not found."
+            "success": False,
+            "error": "Invalid status or alert not found.",
         }), 400
 
     return jsonify({
@@ -323,7 +313,7 @@ def health():
     return jsonify({
         "status": "ok",
         "service": "ARP Shield",
-        "database": "Supabase"
+        "database": "Supabase",
     })
 
 
