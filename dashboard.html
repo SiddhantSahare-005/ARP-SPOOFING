@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        ARP Shield | Security Monitor
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+</head>
+
+
+<body>
+
+
+<div class="app-shell">
+
+
+    <!-- =================================================
+         SIDEBAR
+    ================================================== -->
+
+    <aside class="sidebar">
+
+
+        <div class="brand">
+
+            <div class="brand-mark">
+                AS
+            </div>
+
+            <div>
+
+                <strong>
+                    ARP Shield
+                </strong>
+
+                <span>
+                    Security Monitor
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <nav>
+
+            <a
+                class="nav-item active"
+                href="{{ url_for('dashboard') }}"
+            >
+                Dashboard
+            </a>
+
+            <a
+                class="nav-item"
+                href="#alerts"
+            >
+                Security Alerts
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-note">
+
+            <span class="dot"></span>
+
+            Passive monitoring
+
+        </div>
+
+
+    </aside>
+
+
+    <!-- =================================================
+         MAIN CONTENT
+    ================================================== -->
+
+    <main class="main">
+
+
+        <!-- =================================================
+             HEADER
+        ================================================== -->
+
+        <header class="topbar">
+
+
+            <div>
+
+                <p class="eyebrow">
+                    LOCAL NETWORK SECURITY
+                </p>
+
+                <h1>
+                    ARP Spoofing Detection
+                </h1>
+
+                <p class="muted">
+                    Monitor ARP activity and investigate
+                    suspicious IP-MAC changes.
+                </p>
+
+            </div>
+
+
+            <div class="top-actions">
+
+
+                {% if status.running %}
+
+                    <a
+                        class="button danger"
+                        href="{{ url_for('stop') }}"
+                    >
+                        Stop Monitoring
+                    </a>
+
+                {% else %}
+
+                    <a
+                        class="button primary"
+                        href="{{ url_for('start') }}"
+                    >
+                        Start Monitoring
+                    </a>
+
+                {% endif %}
+
+
+                <a
+                    class="button secondary"
+                    href="{{ url_for('dashboard', page=page) }}"
+                >
+                    Refresh
+                </a>
+
+
+            </div>
+
+
+        </header>
+
+
+        <!-- =================================================
+             STATUS BAR
+        ================================================== -->
+
+        <section class="status-bar">
+
+
+            <div class="status-left">
+
+
+                <span
+                    class="status-dot
+                    {{ 'online' if status.running else 'offline' }}"
+                ></span>
+
+
+                <strong>
+
+                    {{
+                        'Monitoring Active'
+                        if status.running
+                        else
+                        'Monitoring Stopped'
+                    }}
+
+                </strong>
+
+
+                <span class="muted">
+                    Passive packet inspection
+                </span>
+
+
+            </div>
+
+
+            <span class="mapping-count">
+
+                {{ status.learned_mappings }}
+
+                learned mappings
+
+            </span>
+
+
+        </section>
+
+
+        <!-- =================================================
+             NETWORK DETECTED MESSAGE
+        ================================================== -->
+
+        {% if started == "1" and status.running %}
+
+        <div class="network-success">
+
+            <span class="success-icon">
+                ✓
+            </span>
+
+            <div>
+
+                <strong>
+                    Network detected
+                </strong>
+
+                <p>
+                    ARP monitoring started successfully.
+                </p>
+
+            </div>
+
+        </div>
+
+        {% endif %}
+
+
+        <!-- =================================================
+             ERROR MESSAGE
+        ================================================== -->
+
+        {% if status.error %}
+
+        <div class="notice error">
+
+            <strong>
+                Packet capture error:
+            </strong>
+
+            {{ status.error }}
+
+            <span>
+                On Windows, run the terminal as
+                Administrator and ensure Npcap is installed.
+            </span>
+
+        </div>
+
+        {% endif %}
+
+
+        <!-- =================================================
+             STATISTICS
+        ================================================== -->
+
+        <section class="stats-grid">
+
+
+            <article class="stat-card">
+
+                <span>
+                    Total Alerts
+                </span>
+
+                <strong>
+                    {{ stats.total }}
+                </strong>
+
+                <small>
+                    Detected security events
+                </small>
+
+            </article>
+
+
+            <article class="stat-card high">
+
+                <span>
+                    High Severity
+                </span>
+
+                <strong>
+                    {{ stats.high }}
+                </strong>
+
+                <small>
+                    Requires investigation
+                </small>
+
+            </article>
+
+
+            <article class="stat-card medium">
+
+                <span>
+                    Medium Severity
+                </span>
+
+                <strong>
+                    {{ stats.medium }}
+                </strong>
+
+                <small>
+                    Needs review
+                </small>
+
+            </article>
+
+
+            <article class="stat-card low">
+
+                <span>
+                    Low Severity
+                </span>
+
+                <strong>
+                    {{ stats.low }}
+                </strong>
+
+                <small>
+                    Minor anomalies
+                </small>
+
+            </article>
+
+
+        </section>
+
+
+        <!-- =================================================
+             SECURITY ALERTS
+        ================================================== -->
+
+        <section
+            class="panel"
+            id="alerts"
+        >
+
+
+            <div class="panel-head">
+
+
+                <div>
+
+                    <h2>
+                        Security Alerts
+                    </h2>
+
+                    <p>
+                        Latest suspicious ARP activity
+                    </p>
+
+                </div>
+
+
+                <a
+                    class="button ghost danger-text"
+                    href="{{ url_for('clear') }}"
+                    onclick="
+                        return confirm(
+                            'Clear all stored alerts?'
+                        );
+                    "
+                >
+                    Clear Alerts
+                </a>
+
+
+            </div>
+
+
+            {% if alerts %}
+
+
+            <div class="table-wrap">
+
+
+                <table>
+
+
+                    <thead>
+
+                    <tr>
+
+                        <th>
+                            Time
+                        </th>
+
+                        <th>
+                            Source IP
+                        </th>
+
+                        <th>
+                            Source MAC
+                        </th>
+
+                        <th>
+                            Previous MAC
+                        </th>
+
+                        <th>
+                            Attack Type
+                        </th>
+
+                        <th>
+                            Severity
+                        </th>
+
+                        <th>
+                            Description
+                        </th>
+
+                        <th>
+                            Status
+                        </th>
+
+                    </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+
+                    {% for alert in alerts %}
+
+
+                    <tr>
+
+
+                        <td class="time">
+
+                            {{ alert.timestamp }}
+
+                        </td>
+
+
+                        <td class="mono">
+
+                            {{ alert.source_ip or '—' }}
+
+                        </td>
+
+
+                        <td class="mono">
+
+                            {{ alert.source_mac or '—' }}
+
+                        </td>
+
+
+                        <td class="mono">
+
+                            {{ alert.previous_mac or '—' }}
+
+                        </td>
+
+
+                        <td>
+
+                            {{ alert.attack_type }}
+
+                        </td>
+
+
+                        <td>
+
+                            <span
+                                class="badge
+                                {{ alert.severity|lower }}"
+                            >
+
+                                {{ alert.severity }}
+
+                            </span>
+
+                        </td>
+
+
+                        <td class="description">
+
+                            {{ alert.description }}
+
+                        </td>
+
+
+                        <td>
+
+                            <span class="status-pill">
+
+                                {{ alert.status }}
+
+                            </span>
+
+                        </td>
+
+
+                    </tr>
+
+
+                    {% endfor %}
+
+
+                    </tbody>
+
+
+                </table>
+
+
+            </div>
+
+
+            <!-- =================================================
+                 PAGINATION
+            ================================================== -->
+
+            <div class="pagination">
+
+
+                {% if page > 1 %}
+
+                    <a
+                        class="page-button"
+                        href="{{ url_for(
+                            'dashboard',
+                            page=page-1
+                        ) }}"
+                    >
+                        ← Previous
+                    </a>
+
+                {% else %}
+
+                    <span class="page-button disabled">
+                        ← Previous
+                    </span>
+
+                {% endif %}
+
+
+                <span>
+
+                    Page
+
+                    <strong>
+                        {{ page }}
+                    </strong>
+
+                    of
+
+                    <strong>
+                        {{ total_pages }}
+                    </strong>
+
+                </span>
+
+
+                {% if page < total_pages %}
+
+                    <a
+                        class="page-button"
+                        href="{{ url_for(
+                            'dashboard',
+                            page=page+1
+                        ) }}"
+                    >
+                        Next →
+                    </a>
+
+                {% else %}
+
+                    <span class="page-button disabled">
+                        Next →
+                    </span>
+
+                {% endif %}
+
+
+            </div>
+
+
+            {% else %}
+
+
+            <!-- =================================================
+                 EMPTY STATE
+            ================================================== -->
+
+            <div class="empty">
+
+                <div class="empty-icon">
+                    ✓
+                </div>
+
+                <h3>
+                    No security alerts
+                </h3>
+
+                <p>
+                    Start monitoring to analyze
+                    ARP traffic on the local network.
+                </p>
+
+            </div>
+
+
+            {% endif %}
+
+
+        </section>
+
+
+        <!-- =================================================
+             FOOTER
+        ================================================== -->
+
+        <footer>
+
+            ARP Shield · Passive defensive monitoring ·
+            Local environment
+
+        </footer>
+
+
+    </main>
+
+
+</div>
+
+
+<script>
+
+    /*
+        Lightweight monitoring status refresh.
+    */
+
+    setInterval(async () => {
+
+        try {
+
+            const response =
+                await fetch(
+                    "{{ url_for('status_api') }}"
+                );
+
+            if (!response.ok) {
+                return;
+            }
+
+            const data =
+                await response.json();
+
+            document.body.dataset.monitoring =
+                data.running
+                    ? "active"
+                    : "stopped";
+
+        }
+
+        catch (_) {
+
+            // Ignore temporary refresh errors.
+
+        }
+
+    }, 5000);
+
+</script>
+
+
+</body>
+
+</html>
